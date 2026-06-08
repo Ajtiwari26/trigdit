@@ -1,4 +1,4 @@
-import { db, integrations, eq, and } from '@trigdit/db';
+import { getIntegration } from '@/lib/db';
 
 export async function getVercelToken(userId: string): Promise<{ token: string; workspaceId: string | null } | null> {
   if (userId.startsWith('usr_mock')) {
@@ -8,16 +8,11 @@ export async function getVercelToken(userId: string): Promise<{ token: string; w
     };
   }
 
-  const integration = await db.query.integrations.findFirst({
-    where: and(
-      eq(integrations.userId, userId),
-      eq(integrations.provider, 'vercel')
-    ),
-  });
+  const integration = await getIntegration(userId, 'vercel');
   if (!integration) return null;
   return {
     token: integration.token,
-    workspaceId: integration.workspaceId,
+    workspaceId: integration.workspaceId ?? null,
   };
 }
 

@@ -1,12 +1,10 @@
 import NextAuth from 'next-auth';
-import { DrizzleAdapter } from '@auth/drizzle-adapter';
-import { db } from '@trigdit/db';
+import { MongoDBAdapter } from '@auth/mongodb-adapter';
+import clientPromise from '@/lib/mongodb';
 import { authConfig } from './auth.config';
 
-const adapter = process.env.DATABASE_URL ? DrizzleAdapter(db) : undefined;
-
 const { handlers, auth: rawAuth, signIn, signOut } = NextAuth({
-  ...(adapter ? { adapter } : {}),
+  adapter: MongoDBAdapter(clientPromise),
   ...authConfig,
 });
 

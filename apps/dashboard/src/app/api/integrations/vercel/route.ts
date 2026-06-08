@@ -1,5 +1,5 @@
 import { auth } from '@/auth';
-import { db, integrations, eq, and } from '@trigdit/db';
+import { getIntegration, saveIntegration, deleteIntegration } from '@/lib/db';
 import { listVercelProjects, verifyVercelToken } from '@/lib/services/vercel';
 
 export const GET = auth(async (req) => {
@@ -10,12 +10,7 @@ export const GET = auth(async (req) => {
   const userId = req.auth.user.id;
 
   try {
-    const integration = await db.query.integrations.findFirst({
-      where: and(
-        eq(integrations.userId, userId),
-        eq(integrations.provider, 'vercel')
-      ),
-    });
+    const integration = await getIntegration(userId, 'vercel');
 
     if (!integration) {
       return Response.json({ integrated: false });
@@ -51,36 +46,7 @@ export const POST = auth(async (req) => {
       return Response.json({ error: 'Invalid Vercel token or workspace ID' }, { status: 400 });
     }
 
-    // Check if integration already exists
-    const existing = await db.query.integrations.findFirst({
-      where: and(
-        eq(integrations.userId, userId),
-        eq(integrations.provider, 'vercel')
-      ),
-    });
-
-    if (existing) {
-      await db
-        .update(integrations)
-        .set({
-          token,
-          workspaceId: workspaceId || null,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(integrations.userId, userId),
-            eq(integrations.provider, 'vercel')
-          )
-        );
-    } else {
-      await db.insert(integrations).values({
-        userId,
-        provider: 'vercel',
-        token,
-        workspaceId: workspaceId || null,
-      });
-    }
+    await saveIntegration(userId, 'vercel', token, workspaceId);
 
     return Response.json({ success: true });
   } catch (error: any) {
@@ -95,14 +61,7 @@ export const DELETE = auth(async (req) => {
 
   const userId = req.auth.user.id;
   try {
-    await db
-      .delete(integrations)
-      .where(
-        and(
-          eq(integrations.userId, userId),
-          eq(integrations.provider, 'vercel')
-        )
-      );
+    await deleteIntegration(userId, 'vercel');
 
     return Response.json({ success: true });
   } catch (error: any) {

@@ -9,28 +9,30 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "next": "16.2.7",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "@auth/drizzle-adapter": "^1.1.0",
+    "@auth/mongodb-adapter": "^3.11.2",
     "@trigdit/db": "workspace:*",
     "@trigdit/shared": "workspace:*",
-    "next-auth": "5.0.0-beta.25",
-    "@auth/drizzle-adapter": "^1.1.0",
-    "octokit": "^4.0.2",
-    "lucide-react": "^0.395.0",
     "clsx": "^2.1.1",
+    "lucide-react": "^0.395.0",
+    "mongodb": "^7.2.0",
+    "next": "16.2.7",
+    "next-auth": "5.0.0-beta.25",
+    "octokit": "^4.0.2",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "tailwind-merge": "^2.3.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.11.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "@types/pg": "^8.11.6"
+    "typescript": "^5"
   }
 }

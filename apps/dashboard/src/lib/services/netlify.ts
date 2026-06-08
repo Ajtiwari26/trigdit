@@ -1,16 +1,11 @@
-import { db, integrations, eq, and } from '@trigdit/db';
+import { getIntegration } from '@/lib/db';
 
 export async function getNetlifyToken(userId: string): Promise<string | null> {
   if (userId.startsWith('usr_mock')) {
     return 'mock-netlify-token';
   }
 
-  const integration = await db.query.integrations.findFirst({
-    where: and(
-      eq(integrations.userId, userId),
-      eq(integrations.provider, 'netlify')
-    ),
-  });
+  const integration = await getIntegration(userId, 'netlify');
   return integration?.token || null;
 }
 

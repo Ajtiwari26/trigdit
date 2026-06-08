@@ -1,5 +1,5 @@
 import { auth } from '@/auth';
-import { db, integrations, eq, and } from '@trigdit/db';
+import { saveIntegration } from '@/lib/db';
 
 export const GET = auth(async (req) => {
   if (!req.auth?.user?.id) {
@@ -37,36 +37,8 @@ export const GET = auth(async (req) => {
     const token = data.access_token;
     const workspaceId = data.team_id || null;
 
-    // Save or update in database
-    const existing = await db.query.integrations.findFirst({
-      where: and(
-        eq(integrations.userId, userId),
-        eq(integrations.provider, 'vercel')
-      ),
-    });
-
-    if (existing) {
-      await db
-        .update(integrations)
-        .set({
-          token,
-          workspaceId,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(integrations.userId, userId),
-            eq(integrations.provider, 'vercel')
-          )
-        );
-    } else {
-      await db.insert(integrations).values({
-        userId,
-        provider: 'vercel',
-        token,
-        workspaceId,
-      });
-    }
+    // Save in MongoDB integration collection
+    await saveIntegration(userId, 'vercel', token, workspaceId);
 
     return Response.redirect(new URL('/dashboard/settings?success=vercel', req.nextUrl));
   } catch (error: any) {

@@ -1,5 +1,5 @@
 import { auth } from '@/auth';
-import { db, integrations, eq, and } from '@trigdit/db';
+import { saveIntegration } from '@/lib/db';
 
 export const GET = auth(async (req) => {
   if (!req.auth?.user?.id) {
@@ -37,34 +37,8 @@ export const GET = auth(async (req) => {
     const data = await response.json();
     const token = data.access_token;
 
-    // Save or update in database
-    const existing = await db.query.integrations.findFirst({
-      where: and(
-        eq(integrations.userId, userId),
-        eq(integrations.provider, 'netlify')
-      ),
-    });
-
-    if (existing) {
-      await db
-        .update(integrations)
-        .set({
-          token,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(integrations.userId, userId),
-            eq(integrations.provider, 'netlify')
-          )
-        );
-    } else {
-      await db.insert(integrations).values({
-        userId,
-        provider: 'netlify',
-        token,
-      });
-    }
+    // Save in MongoDB integration collection
+    await saveIntegration(userId, 'netlify', token);
 
     return Response.redirect(new URL('/dashboard/settings?success=netlify', req.nextUrl));
   } catch (error: any) {

@@ -1,15 +1,6 @@
 import { Octokit } from 'octokit';
-import { db, accounts, eq, and } from '@trigdit/db';
-
-export async function getGitHubToken(userId: string): Promise<string | null> {
-  const account = await db.query.accounts.findFirst({
-    where: and(
-      eq(accounts.userId, userId),
-      eq(accounts.provider, 'github')
-    ),
-  });
-  return account?.access_token || null;
-}
+import { getGitHubToken } from '@/lib/db';
+export { getGitHubToken };
 
 export async function getOctokitClient(userId: string, customToken?: string): Promise<Octokit> {
   const token = customToken || await getGitHubToken(userId);
@@ -207,4 +198,209 @@ export async function createRepoWebhook(
   });
 
   return response.data.id;
+}
+
+export async function scanAndGenerateSchema(
+  userId: string,
+  owner: string,
+  repo: string,
+  branch: string,
+  customToken?: string
+): Promise<{ schema: any; content: any }> {
+  if (userId.startsWith('usr_mock')) {
+    const defaultSchema = {
+      version: '1.0',
+      pages: [
+        {
+          path: '/',
+          name: 'Home Page',
+          sections: [
+            {
+              id: 'hero',
+              name: 'Hero Banner',
+              description: 'Primary visual section at the top of the homepage.',
+              fields: [
+                { key: 'hero_title', label: 'Title Text', type: 'text', defaultValue: 'Visual Web Builder Platform' },
+                { key: 'hero_subtitle', label: 'Subtitle Description', type: 'textarea', defaultValue: 'Empower non-technical owners to edit modern frameworks visually.' },
+                { key: 'hero_accentColor', label: 'Theme Accent Color', type: 'color', defaultValue: '#6366F1' }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+    const defaultContent = {
+      '/': {
+        'hero': {
+          'hero_title': 'Visual Web Builder Platform',
+          'hero_subtitle': 'Empower non-technical owners to edit modern frameworks visually.',
+          'hero_accentColor': '#6366F1'
+        }
+      }
+    };
+    return { schema: defaultSchema, content: defaultContent };
+  }
+
+  try {
+    const octokit = await getOctokitClient(userId, customToken);
+    const { data: treeData } = await octokit.rest.git.getTree({
+      owner,
+      repo,
+      tree_sha: branch,
+      recursive: 'true',
+    });
+
+    const files = treeData.tree || [];
+    const scanCandidates = files.filter(f => {
+      if (f.type !== 'blob') return false;
+      const path = f.path || '';
+      return (
+        path.endsWith('page.tsx') ||
+        path.endsWith('page.jsx') ||
+        path.endsWith('index.html') ||
+        path.endsWith('App.tsx') ||
+        path.endsWith('App.jsx')
+      );
+    }).slice(0, 3);
+
+    const sections: any[] = [];
+    const contentMap: any = { '/': {} };
+
+    for (const file of scanCandidates) {
+      const path = file.path || '';
+      const contentRes = await getFileContent(userId, owner, repo, path, branch, customToken);
+      if (!contentRes) continue;
+
+      const code = contentRes.content;
+      const fileName = path.split('/').pop() || 'index';
+      const fileSlug = fileName.replace(/\.[^/.]+$/, "").toLowerCase();
+      
+      const fields: any[] = [];
+      const sectionId = `section_${fileSlug}`;
+      contentMap['/'][sectionId] = {};
+
+      const headingRegex = /<h[1-6][^>]*>([^<]+)<\/h[1-6]>/gi;
+      let headingMatch;
+      let headingIndex = 1;
+      while ((headingMatch = headingRegex.exec(code)) !== null && headingIndex <= 5) {
+        const textVal = headingMatch[1].trim();
+        if (textVal && !textVal.includes('{') && !textVal.includes('}')) {
+          const key = `${fileSlug}_heading_${headingIndex}`;
+          fields.push({
+            key,
+            label: `Heading ${headingIndex}`,
+            type: 'text',
+            defaultValue: textVal
+          });
+          contentMap['/'][sectionId][key] = textVal;
+          headingIndex++;
+        }
+      }
+
+      const paraRegex = /<p[^>]*>([^<]+)<\/p>/gi;
+      let paraMatch;
+      let paraIndex = 1;
+      while ((paraMatch = paraRegex.exec(code)) !== null && paraIndex <= 5) {
+        const textVal = paraMatch[1].trim();
+        if (textVal && !textVal.includes('{') && !textVal.includes('}')) {
+          const key = `${fileSlug}_para_${paraIndex}`;
+          fields.push({
+            key,
+            label: `Paragraph ${paraIndex}`,
+            type: 'textarea',
+            defaultValue: textVal
+          });
+          contentMap['/'][sectionId][key] = textVal;
+          paraIndex++;
+        }
+      }
+
+      const imgRegex = /<img[^>]+src=["']([^"']+)["']/gi;
+      let imgMatch;
+      let imgIndex = 1;
+      while ((imgMatch = imgRegex.exec(code)) !== null && imgIndex <= 5) {
+        const imgSrc = imgMatch[1].trim();
+        if (imgSrc && !imgSrc.includes('{') && !imgSrc.includes('}')) {
+          const key = `${fileSlug}_image_${imgIndex}`;
+          fields.push({
+            key,
+            label: `Image ${imgIndex}`,
+            type: 'image',
+            defaultValue: imgSrc
+          });
+          contentMap['/'][sectionId][key] = imgSrc;
+          imgIndex++;
+        }
+      }
+
+      if (fields.length > 0) {
+        sections.push({
+          id: sectionId,
+          name: `${fileSlug.charAt(0).toUpperCase() + fileSlug.slice(1)} Section`,
+          description: `Visual elements scanned from ${path}`,
+          fields
+        });
+      }
+    }
+
+    if (sections.length === 0) {
+      sections.push({
+        id: 'hero',
+        name: 'Hero Section',
+        description: 'Auto-generated visual editor section.',
+        fields: [
+          { key: 'hero_title', label: 'Title Text', type: 'text', defaultValue: 'Modern Website Platform' },
+          { key: 'hero_subtitle', label: 'Subtitle Description', type: 'textarea', defaultValue: 'Link, sync, and deploy visual themes instantly.' }
+        ]
+      });
+      contentMap['/']['hero'] = {
+        hero_title: 'Modern Website Platform',
+        hero_subtitle: 'Link, sync, and deploy visual themes instantly.'
+      };
+    }
+
+    const finalSchema = {
+      version: '1.0',
+      pages: [
+        {
+          path: '/',
+          name: 'Home Page',
+          sections
+        }
+      ]
+    };
+
+    return {
+      schema: finalSchema,
+      content: contentMap
+    };
+  } catch (error) {
+    console.error('Codebase scanning failed:', error);
+    const fallbackSchema = {
+      version: '1.0',
+      pages: [
+        {
+          path: '/',
+          name: 'Home Page',
+          sections: [
+            {
+              id: 'hero',
+              name: 'Hero Section',
+              fields: [
+                { key: 'hero_title', label: 'Title Text', type: 'text', defaultValue: 'Visual Web Builder' }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+    const fallbackContent = {
+      '/': {
+        'hero': {
+          'hero_title': 'Visual Web Builder'
+        }
+      }
+    };
+    return { schema: fallbackSchema, content: fallbackContent };
+  }
 }

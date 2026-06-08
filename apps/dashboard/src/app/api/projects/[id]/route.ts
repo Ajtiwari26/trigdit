@@ -1,22 +1,16 @@
 import { auth } from '@/auth';
-import { db, projects, eq, and } from '@trigdit/db';
+import { getProjectById, updateProject, deleteProject } from '@/lib/db';
 
 export const GET = auth(async (req, { params }) => {
   if (!req.auth?.user?.id) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { id } = params as { id: string };
+  const { id } = (await params) as { id: string };
   const userId = req.auth.user.id;
 
   try {
-    const project = await db.query.projects.findFirst({
-      where: and(
-        eq(projects.id, id),
-        eq(projects.userId, userId)
-      ),
-    });
-
+    const project = await getProjectById(id, userId);
     if (!project) {
       return Response.json({ error: 'Project not found' }, { status: 404 });
     }
@@ -32,42 +26,24 @@ export const PATCH = auth(async (req, { params }) => {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { id } = params as { id: string };
+  const { id } = (await params) as { id: string };
   const userId = req.auth.user.id;
 
   try {
     const body = await req.json();
     const { name, branch, contentPath, schemaPath } = body;
 
-    const project = await db.query.projects.findFirst({
-      where: and(
-        eq(projects.id, id),
-        eq(projects.userId, userId)
-      ),
-    });
-
+    const project = await getProjectById(id, userId);
     if (!project) {
       return Response.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    const updated = await db
-      .update(projects)
-      .set({
-        name: name !== undefined ? name : project.name,
-        branch: branch !== undefined ? branch : project.branch,
-        contentPath: contentPath !== undefined ? contentPath : project.contentPath,
-        schemaPath: schemaPath !== undefined ? schemaPath : project.schemaPath,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(projects.id, id),
-          eq(projects.userId, userId)
-        )
-      )
-      .returning();
+    const updated = await updateProject(id, userId, {
+      name: name !== undefined ? name : project.name,
+      branch: branch !== undefined ? branch : project.branch,
+    });
 
-    return Response.json(updated[0]);
+    return Response.json(updated);
   } catch (error: any) {
     return Response.json({ error: error.message || 'Failed to update project' }, { status: 500 });
   }
@@ -78,29 +54,16 @@ export const DELETE = auth(async (req, { params }) => {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { id } = params as { id: string };
+  const { id } = (await params) as { id: string };
   const userId = req.auth.user.id;
 
   try {
-    const project = await db.query.projects.findFirst({
-      where: and(
-        eq(projects.id, id),
-        eq(projects.userId, userId)
-      ),
-    });
-
+    const project = await getProjectById(id, userId);
     if (!project) {
       return Response.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    await db
-      .delete(projects)
-      .where(
-        and(
-          eq(projects.id, id),
-          eq(projects.userId, userId)
-        )
-      );
+    await deleteProject(id, userId);
 
     return Response.json({ success: true });
   } catch (error: any) {

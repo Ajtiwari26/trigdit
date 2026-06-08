@@ -1,6 +1,6 @@
 import { auth } from '@/auth';
-import { db, projects, eq, and } from '@trigdit/db';
-import { createRepoWebhook } from '@/lib/services/github';
+import { getProjects, createProject, saveProjectSchema, saveProjectContent } from '@/lib/db';
+import { createRepoWebhook, getFileContent, scanAndGenerateSchema } from '@/lib/services/github';
 import { createVercelProject, triggerVercelDeployment } from '@/lib/services/vercel';
 import { createNetlifySite, triggerNetlifyBuild } from '@/lib/services/netlify';
 
@@ -12,9 +12,7 @@ export const GET = auth(async (req) => {
   const userId = req.auth.user.id;
 
   try {
-    const userProjects = await db.query.projects.findMany({
-      where: eq(projects.userId, userId),
-    });
+    const userProjects = await getProjects(userId);
     return Response.json(userProjects);
   } catch (error: any) {
     return Response.json({ error: error.message || 'Failed to list projects' }, { status: 500 });
@@ -41,6 +39,8 @@ export const POST = auth(async (req) => {
       return Response.json({ error: 'Invalid repository name format. Must be owner/name.' }, { status: 400 });
     }
 
+    const accessToken = (req.auth as any)?.accessToken;
+
     let vercelProjectId: string | undefined;
     let vercelProjectName: string | undefined;
     let netlifySiteId: string | undefined;
@@ -54,7 +54,6 @@ export const POST = auth(async (req) => {
         vercelProjectId = vercelProj.id;
         vercelProjectName = vercelProj.name;
 
-        // Trigger initial Vercel deploy
         const deploy = await triggerVercelDeployment(userId, vercelProj.name, branch);
         deploymentUrl = deploy.url;
       } catch (err: any) {
@@ -68,7 +67,6 @@ export const POST = auth(async (req) => {
         netlifySiteName = netlifySite.name;
         deploymentUrl = netlifySite.url;
 
-        // Trigger Netlify build
         await triggerNetlifyBuild(userId, netlifySite.id);
       } catch (err: any) {
         console.error('Netlify link error:', err);
@@ -81,15 +79,40 @@ export const POST = auth(async (req) => {
     const webhookUrl = `${appUrl}/api/webhooks/github`;
     const webhookSecret = process.env.WEBHOOK_SECRET || 'trigdit-webhook-secret';
     
-    const accessToken = (req.auth as any)?.accessToken;
     try {
       await createRepoWebhook(userId, repoOrg, repoSimpleName, webhookUrl, webhookSecret, accessToken);
     } catch (err: any) {
       console.warn('GitHub webhook creation failed (might already exist):', err.message);
     }
 
-    // 3. Save to database
-    const newProject = await db.insert(projects).values({
+    // 3. Scan codebase for schema & content, or load from GitHub if already present
+    let schemaData: any;
+    let contentData: any;
+
+    try {
+      const existingSchemaFile = await getFileContent(userId, repoOrg, repoSimpleName, 'trigdit.schema.json', branch, accessToken);
+      if (existingSchemaFile) {
+        schemaData = JSON.parse(existingSchemaFile.content);
+        const existingContentFile = await getFileContent(userId, repoOrg, repoSimpleName, 'data/content.json', branch, accessToken);
+        contentData = existingContentFile ? JSON.parse(existingContentFile.content) : { '/': {} };
+      } else {
+        const scanResult = await scanAndGenerateSchema(userId, repoOrg, repoSimpleName, branch, accessToken);
+        schemaData = scanResult.schema;
+        contentData = scanResult.content;
+      }
+    } catch (err) {
+      console.warn('Auto-scanning failed, using default schema:', err);
+      schemaData = {
+        version: '1.0',
+        pages: [{ path: '/', name: 'Home Page', sections: [] }]
+      };
+      contentData = { '/': {} };
+    }
+
+    // 4. Save metadata to MongoDB
+    const projectId = 'proj_' + Math.random().toString(36).substring(2, 11);
+    const newProject = await createProject({
+      id: projectId,
       userId,
       name,
       repoName,
@@ -100,10 +123,14 @@ export const POST = auth(async (req) => {
       vercelProjectName: vercelProjectName || null,
       netlifySiteId: netlifySiteId || null,
       netlifySiteName: netlifySiteName || null,
-    }).returning();
+    });
+
+    // 5. Store schema and initial content mapping in MongoDB collections
+    await saveProjectSchema(projectId, schemaData);
+    await saveProjectContent(projectId, contentData);
 
     return Response.json({
-      project: newProject[0],
+      project: newProject,
       deploymentUrl,
     });
 

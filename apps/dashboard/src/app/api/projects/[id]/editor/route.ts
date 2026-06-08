@@ -1,6 +1,5 @@
 import { auth } from '@/auth';
-import { db, projects, eq, and } from '@trigdit/db';
-import { getFileContent, commitFileContent } from '@/lib/services/github';
+import { getProjectById, getProjectSchema, getProjectContent, saveProjectContent } from '@/lib/db';
 import { triggerVercelDeployment } from '@/lib/services/vercel';
 import { triggerNetlifyBuild } from '@/lib/services/netlify';
 
@@ -9,55 +8,23 @@ export const GET = auth(async (req, { params }) => {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { id } = params as { id: string };
+  const { id } = (await params) as { id: string };
   const userId = req.auth.user.id;
 
   try {
-    const project = await db.query.projects.findFirst({
-      where: and(
-        eq(projects.id, id),
-        eq(projects.userId, userId)
-      ),
-    });
-
+    const project = await getProjectById(id, userId);
     if (!project) {
       return Response.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    const [owner, repoName] = project.repoName?.split('/') || [];
-    if (!owner || !repoName) {
-      return Response.json({ error: 'GitHub repository not configured correctly' }, { status: 400 });
-    }
-
-    const accessToken = (req.auth as any)?.accessToken;
-    // Fetch schema and content from Github
-    const schemaFile = await getFileContent(userId, owner, repoName, project.schemaPath, project.branch, accessToken);
-    const contentFile = await getFileContent(userId, owner, repoName, project.contentPath, project.branch, accessToken);
-
-    let parsedSchema = null;
-    if (schemaFile) {
-      try {
-        parsedSchema = JSON.parse(schemaFile.content);
-      } catch (err) {
-        console.warn('Failed to parse schema.json from repo:', err);
-      }
-    }
-
-    let parsedContent = {};
-    if (contentFile) {
-      try {
-        parsedContent = JSON.parse(contentFile.content);
-      } catch (err) {
-        console.warn('Failed to parse content.json from repo:', err);
-      }
-    }
+    // Fetch schema and content directly from MongoDB
+    const schema = await getProjectSchema(id);
+    const content = await getProjectContent(id) || {};
 
     return Response.json({
       project,
-      schema: parsedSchema,
-      content: parsedContent,
-      schemaSha: schemaFile?.sha,
-      contentSha: contentFile?.sha,
+      schema,
+      content,
     });
   } catch (error: any) {
     console.error('Editor load error:', error);
@@ -70,7 +37,7 @@ export const POST = auth(async (req, { params }) => {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { id } = params as { id: string };
+  const { id } = (await params) as { id: string };
   const userId = req.auth.user.id;
 
   try {
@@ -81,42 +48,15 @@ export const POST = auth(async (req, { params }) => {
       return Response.json({ error: 'Content data is required' }, { status: 400 });
     }
 
-    const project = await db.query.projects.findFirst({
-      where: and(
-        eq(projects.id, id),
-        eq(projects.userId, userId)
-      ),
-    });
-
+    const project = await getProjectById(id, userId);
     if (!project) {
       return Response.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    const [owner, repoName] = project.repoName?.split('/') || [];
-    if (!owner || !repoName) {
-      return Response.json({ error: 'GitHub repository not configured correctly' }, { status: 400 });
-    }
+    // 1. Save updated content directly to MongoDB (instead of committing to Git)
+    await saveProjectContent(id, content);
 
-    const accessToken = (req.auth as any)?.accessToken;
-    // 1. Get current content.json SHA to commit update
-    const contentFile = await getFileContent(userId, owner, repoName, project.contentPath, project.branch, accessToken);
-    const sha = contentFile?.sha;
-
-    // 2. Commit update to Github
-    const contentString = JSON.stringify(content, null, 2);
-    const commitResult = await commitFileContent(
-      userId,
-      owner,
-      repoName,
-      project.contentPath,
-      contentString,
-      'chore(trigdit): update content via visual editor',
-      project.branch,
-      sha,
-      accessToken
-    );
-
-    // 3. Trigger rebuild on hosting platform
+    // 2. Trigger rebuild/revalidation on hosting platform
     let deployResult = null;
     if (project.hostingProvider === 'vercel' && project.vercelProjectName) {
       try {
@@ -133,9 +73,25 @@ export const POST = auth(async (req, { params }) => {
       }
     }
 
+    // 3. Trigger Next.js revalidation endpoint on user's live site (Incremental Static Revalidation)
+    // We try to trigger '/api/revalidate' if they have set it up
+    try {
+      const liveUrl = project.hostingProvider === 'vercel' && project.vercelProjectName
+        ? `https://${project.vercelProjectName}.vercel.app`
+        : project.hostingProvider === 'netlify' && project.netlifySiteName
+          ? `https://${project.netlifySiteName}.netlify.app`
+          : null;
+
+      if (liveUrl) {
+        // Trigger background ISR revalidation fetch
+        fetch(`${liveUrl}/api/revalidate?path=/`, { method: 'POST' }).catch(() => {});
+      }
+    } catch (revalErr) {
+      console.warn('Revalidation webhook failed to trigger:', revalErr);
+    }
+
     return Response.json({
       success: true,
-      commitSha: commitResult.sha,
       deployment: deployResult,
     });
   } catch (error: any) {
