@@ -58,7 +58,6 @@ export default function LoginPage() {
                 <stop offset="100%" stopColor="#34D399" stopOpacity="0.2" />
               </linearGradient>
               <filter id="glowFilter" x="-20%" y="-20%" width="140%" height="140%">
-                <shadowCardBlur />
                 <feGaussianBlur stdDeviation="4" result="blur" />
                 <feMerge>
                   <feMergeNode in="blur" />
