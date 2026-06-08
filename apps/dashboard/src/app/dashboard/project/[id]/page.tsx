@@ -18,7 +18,9 @@ import {
   FileCode,
   CheckCircle2,
   AlertTriangle,
-  Sparkles
+  Sparkles,
+  PanelLeft,
+  PanelLeftClose
 } from 'lucide-react';
 import type { ProjectSchemaFile, ContentData } from '@trigdit/shared';
 
@@ -37,6 +39,8 @@ export default function EditorPage() {
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [viewportMode, setViewportMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [publishStatus, setPublishStatus] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
 
   // Load editor details
   useEffect(() => {
@@ -174,18 +178,37 @@ export default function EditorPage() {
 
       {/* Editor Header */}
       <header className="h-14 border-b border-slate-900 px-6 flex items-center justify-between bg-slate-950/80 backdrop-blur-md z-20">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
             className="p-2 hover:bg-slate-900 rounded-lg text-slate-400 hover:text-white transition-colors"
+            title="Return to Dashboard"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
+          
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="p-2 hover:bg-slate-900 rounded-lg text-slate-400 hover:text-white transition-colors"
+            title={sidebarCollapsed ? "Expand Sidebar (Pinned)" : "Collapse Sidebar"}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeft className="h-4.5 w-4.5 text-indigo-400" />
+            ) : (
+              <PanelLeftClose className="h-4.5 w-4.5" />
+            )}
+          </button>
+
           <div className="h-4 w-[1px] bg-slate-900" />
-          <div>
-            <h1 className="text-sm font-bold text-white flex items-center gap-1.5">
+
+          <div 
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="flex items-center gap-2 cursor-pointer select-none group"
+            title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            <h1 className="text-sm font-bold text-white flex items-center gap-1.5 group-hover:text-indigo-400 transition-colors">
               {project.name}
-              <span className="text-[10px] font-mono text-slate-500 bg-slate-900 py-0.5 px-2 rounded">
+              <span className="text-[10px] font-mono text-slate-500 bg-slate-900 py-0.5 px-2 rounded group-hover:bg-slate-800 transition-colors">
                 {project.branch}
               </span>
             </h1>
@@ -232,9 +255,17 @@ export default function EditorPage() {
       </header>
 
       {/* Editor Body */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* Sidebar Controls - Left */}
-        <aside className="w-80 border-r border-slate-900 bg-slate-900/10 backdrop-blur-md flex flex-col overflow-y-auto">
+        <aside 
+          onMouseEnter={() => sidebarCollapsed && setSidebarHovered(true)}
+          onMouseLeave={() => sidebarCollapsed && setSidebarHovered(false)}
+          className={`border-r border-slate-900 bg-slate-950 flex flex-col overflow-y-auto transition-all duration-300 z-30 ${
+            sidebarCollapsed 
+              ? `absolute left-0 top-0 bottom-0 shadow-2xl ${sidebarHovered ? 'w-80 translate-x-0' : 'w-80 -translate-x-full'}` 
+              : 'relative w-80 translate-x-0'
+          }`}
+        >
           {/* Schema check warning */}
           {!schema && (
             <div className="p-4 m-4 bg-amber-500/5 border border-amber-500/15 rounded-xl text-amber-400 space-y-2">
@@ -409,6 +440,15 @@ export default function EditorPage() {
             </div>
           )}
         </aside>
+
+        {/* Hover trigger zone when sidebar is collapsed */}
+        {sidebarCollapsed && (
+          <div 
+            onMouseEnter={() => setSidebarHovered(true)}
+            className="absolute left-0 top-0 bottom-0 w-3 z-20 cursor-pointer hover:bg-indigo-500/10 transition-colors"
+            title="Hover to show sidebar"
+          />
+        )}
 
         {/* Visual Editor Canvas - Right */}
         <section className="flex-1 bg-slate-950 flex flex-col items-center justify-center p-8 overflow-hidden relative">

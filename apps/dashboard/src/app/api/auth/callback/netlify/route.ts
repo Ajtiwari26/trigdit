@@ -15,7 +15,7 @@ export const GET = auth(async (req) => {
   }
 
   try {
-    const response = await fetch('https://api.netlify.com/oauth/tokens', {
+    const response = await fetch('https://api.netlify.com/oauth/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -30,8 +30,13 @@ export const GET = auth(async (req) => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error_description || 'Failed to exchange Netlify authorization code');
+      const errorText = await response.text().catch(() => '');
+      console.error('Netlify exchange token error response:', errorText);
+      let errorDataObj: any = {};
+      try {
+        errorDataObj = JSON.parse(errorText);
+      } catch {}
+      throw new Error(errorDataObj.error_description || errorDataObj.error || errorText || 'Failed to exchange Netlify authorization code');
     }
 
     const data = await response.json();

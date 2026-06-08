@@ -2,6 +2,7 @@ import { auth } from '@/auth';
 import { getProjectById, getProjectSchema, getProjectContent, saveProjectContent } from '@/lib/db';
 import { triggerVercelDeployment } from '@/lib/services/vercel';
 import { triggerNetlifyBuild } from '@/lib/services/netlify';
+import { getFileContent, commitFileContent } from '@/lib/services/github';
 
 export const GET = auth(async (req, { params }) => {
   if (!req.auth?.user?.id) {
@@ -53,10 +54,37 @@ export const POST = auth(async (req, { params }) => {
       return Response.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    // 1. Save updated content directly to MongoDB (instead of committing to Git)
+    // 1. Save updated content directly to MongoDB
     await saveProjectContent(id, content);
 
-    // 2. Trigger rebuild/revalidation on hosting platform
+    // 2. Commit update to Github if configured
+    const [owner, repoName] = project.repoName?.split('/') || [];
+    const accessToken = (req.auth as any)?.accessToken;
+    if (owner && repoName && accessToken) {
+      const contentPath = 'data/content.json';
+      const contentString = JSON.stringify(content, null, 2);
+      
+      try {
+        const contentFile = await getFileContent(userId, owner, repoName, contentPath, project.branch, accessToken);
+        const sha = contentFile?.sha;
+
+        await commitFileContent(
+          userId,
+          owner,
+          repoName,
+          contentPath,
+          contentString,
+          'chore(trigdit): update content via visual editor',
+          project.branch,
+          sha,
+          accessToken
+        );
+      } catch (gitErr: any) {
+        console.error('Failed to commit content to GitHub:', gitErr.message);
+      }
+    }
+
+    // 3. Trigger rebuild/revalidation on hosting platform
     let deployResult = null;
     if (project.hostingProvider === 'vercel' && project.vercelProjectName) {
       try {

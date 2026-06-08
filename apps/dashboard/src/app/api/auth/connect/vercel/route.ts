@@ -5,12 +5,10 @@ export const GET = auth(async (req) => {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const clientId = process.env.VERCEL_CLIENT_ID || '';
-  const redirectUri = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/callback/vercel`;
-  
-  const vercelAuthUrl = `https://vercel.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
+  const slug = process.env.VERCEL_INTEGRATION_SLUG || 'trigdit';
+  const vercelAuthUrl = `https://vercel.com/integrations/${slug}/new`;
 
-  console.log('Redirecting to Vercel OAuth URL:', vercelAuthUrl);
+  console.log('Redirecting to Vercel Integration URL:', vercelAuthUrl);
 
   return Response.redirect(vercelAuthUrl);
 });
