@@ -3,8 +3,10 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { db } from '@trigdit/db';
 import { authConfig } from './auth.config';
 
+const adapter = process.env.DATABASE_URL ? DrizzleAdapter(db) : undefined;
+
 const { handlers, auth: rawAuth, signIn, signOut } = NextAuth({
-  adapter: DrizzleAdapter(db),
+  ...(adapter ? { adapter } : {}),
   ...authConfig,
 });
 
