@@ -29,9 +29,10 @@ export const GET = auth(async (req, { params }) => {
       return Response.json({ error: 'GitHub repository not configured correctly' }, { status: 400 });
     }
 
+    const accessToken = (req.auth as any)?.accessToken;
     // Fetch schema and content from Github
-    const schemaFile = await getFileContent(userId, owner, repoName, project.schemaPath, project.branch);
-    const contentFile = await getFileContent(userId, owner, repoName, project.contentPath, project.branch);
+    const schemaFile = await getFileContent(userId, owner, repoName, project.schemaPath, project.branch, accessToken);
+    const contentFile = await getFileContent(userId, owner, repoName, project.contentPath, project.branch, accessToken);
 
     let parsedSchema = null;
     if (schemaFile) {
@@ -96,8 +97,9 @@ export const POST = auth(async (req, { params }) => {
       return Response.json({ error: 'GitHub repository not configured correctly' }, { status: 400 });
     }
 
+    const accessToken = (req.auth as any)?.accessToken;
     // 1. Get current content.json SHA to commit update
-    const contentFile = await getFileContent(userId, owner, repoName, project.contentPath, project.branch);
+    const contentFile = await getFileContent(userId, owner, repoName, project.contentPath, project.branch, accessToken);
     const sha = contentFile?.sha;
 
     // 2. Commit update to Github
@@ -110,7 +112,8 @@ export const POST = auth(async (req, { params }) => {
       contentString,
       'chore(trigdit): update content via visual editor',
       project.branch,
-      sha
+      sha,
+      accessToken
     );
 
     // 3. Trigger rebuild on hosting platform

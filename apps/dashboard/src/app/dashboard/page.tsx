@@ -7,6 +7,7 @@ import {
   Github, 
   ExternalLink,
   ChevronRight,
+  ChevronDown,
   Globe,
   Settings,
   FolderDot,
@@ -38,16 +39,12 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [gitRepos, setGitRepos] = useState<GitHubRepo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-
-  // Form State
-  const [name, setName] = useState('');
-  const [selectedRepo, setSelectedRepo] = useState('');
-  const [branch, setBranch] = useState('main');
-  const [framework, setFramework] = useState('nextjs');
-  const [hostingProvider, setHostingProvider] = useState('none');
-  const [creating, setCreating] = useState(false);
+  
+  // Repo selector dropdown state
+  const [showRepoDropdown, setShowRepoDropdown] = useState(false);
+  const [globalLoading, setGlobalLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   // Hosting integrations state (to verify availability before connecting)
   const [vercelAvailable, setVercelAvailable] = useState(false);
@@ -71,10 +68,6 @@ export default function DashboardPage() {
         if (gitRes.ok) {
           const repos = await gitRes.json();
           setGitRepos(repos);
-          if (repos.length > 0) {
-            setSelectedRepo(repos[0].fullName);
-            setBranch(repos[0].defaultBranch || 'main');
-          }
         }
 
         if (vercelRes.ok) {
@@ -96,44 +89,40 @@ export default function DashboardPage() {
     loadDashboardData();
   }, []);
 
-  // Sync default branch when repository changes
-  const handleRepoChange = (repoName: string) => {
-    setSelectedRepo(repoName);
-    const repo = gitRepos.find((r) => r.fullName === repoName);
-    if (repo) {
-      setBranch(repo.defaultBranch || 'main');
-    }
-  };
-
-  const handleCreateProject = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLinkRepo = async (repo: GitHubRepo) => {
+    setShowRepoDropdown(false);
+    setGlobalLoading(true);
     setErrorMsg('');
-    setCreating(true);
+    setSuccessMsg('');
+
+    // Format repository name (e.g. nextjs-company-website -> Nextjs Company Website)
+    const formattedName = repo.name
+      .split(/[-_]/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
 
     try {
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
-          repoName: selectedRepo,
-          branch,
-          framework,
-          hostingProvider: hostingProvider === 'none' ? null : hostingProvider,
+          name: formattedName,
+          repoName: repo.fullName,
+          branch: repo.defaultBranch || 'main',
+          framework: 'nextjs', // Default framework
+          hostingProvider: vercelAvailable ? 'vercel' : netlifyAvailable ? 'netlify' : null,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create project');
+      if (!res.ok) throw new Error(data.error || 'Failed to link repository');
 
       setProjects((prev) => [data.project, ...prev]);
-      setShowModal(false);
-      setName('');
-      setErrorMsg('');
+      setSuccessMsg(`Successfully linked repository: ${repo.name}`);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error occurred');
+      setErrorMsg(err.message || 'Error occurred while linking repository');
     } finally {
-      setCreating(false);
+      setGlobalLoading(false);
     }
   };
 
@@ -153,14 +142,67 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold tracking-tight text-white font-heading">Project Workspaces</h1>
           <p className="text-slate-400 mt-1 text-sm">Link Git repos to visual layouts and publish headless websites live.</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-indigo-650 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium transition-all shadow-md shadow-indigo-650/15 cursor-pointer btn-shimmer border border-indigo-500/20"
-        >
-          <Plus className="h-4.5 w-4.5" />
-          <span>New Project</span>
-        </button>
+        
+        {/* Dropdown Selector */}
+        <div className="relative">
+          <button
+            onClick={() => setShowRepoDropdown(!showRepoDropdown)}
+            disabled={globalLoading}
+            className="flex items-center gap-2 bg-indigo-650 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium transition-all shadow-md shadow-indigo-650/15 cursor-pointer btn-shimmer border border-indigo-500/20 disabled:opacity-50"
+          >
+            {globalLoading ? (
+              <RefreshCw className="h-4.5 w-4.5 animate-spin" />
+            ) : (
+              <Plus className="h-4.5 w-4.5" />
+            )}
+            <span>Link Repository</span>
+            <ChevronDown className="h-4 w-4 opacity-70 ml-1" />
+          </button>
+          
+          {showRepoDropdown && (
+            <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-slate-950 border border-slate-900 shadow-2xl z-50 overflow-hidden py-1 max-h-96 overflow-y-auto">
+              <div className="px-3.5 py-2 border-b border-slate-900/60">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Select GitHub Repository</span>
+              </div>
+              {gitRepos.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-500">
+                  No repositories found.<br/>Connect GitHub in Settings.
+                </div>
+              ) : (
+                gitRepos.map((repo) => (
+                  <button
+                    key={repo.fullName}
+                    onClick={() => handleLinkRepo(repo)}
+                    className="w-full text-left px-4 py-3 hover:bg-indigo-600/10 text-xs text-slate-300 hover:text-white transition-all flex items-center justify-between border-b border-slate-900/30 last:border-b-0 cursor-pointer"
+                  >
+                    <div className="truncate pr-4 flex flex-col gap-0.5">
+                      <span className="font-semibold text-slate-200">{repo.name}</span>
+                      <span className="text-[9px] text-slate-500 truncate">{repo.fullName}</span>
+                    </div>
+                    <span className="text-[9px] font-mono bg-slate-900 px-1.5 py-0.5 rounded text-indigo-400 border border-slate-850">
+                      {repo.defaultBranch || 'main'}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Global Alerts */}
+      {errorMsg && (
+        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-450 rounded-2xl text-xs flex justify-between items-center">
+          <span>{errorMsg}</span>
+          <button onClick={() => setErrorMsg('')} className="text-rose-400 hover:text-rose-300 font-bold ml-4">✕</button>
+        </div>
+      )}
+      {successMsg && (
+        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-450 rounded-2xl text-xs flex justify-between items-center">
+          <span>{successMsg}</span>
+          <button onClick={() => setSuccessMsg('')} className="text-emerald-400 hover:text-emerald-350 font-bold ml-4">✕</button>
+        </div>
+      )}
 
       {projects.length === 0 ? (
         <div className="border border-slate-900 bg-slate-950/40 backdrop-blur-md rounded-3xl p-16 text-center max-w-xl mx-auto flex flex-col items-center space-y-6 glass-card">
@@ -213,13 +255,31 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 px-5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
-          >
-            Link Your First Repository
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
+          {/* Inline Repo list in empty state */}
+          <div className="w-full max-w-sm space-y-2 text-left">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block text-center mb-1">Quick Link Repository</span>
+            {gitRepos.length === 0 ? (
+              <Link href="/dashboard/settings" className="block p-4 text-center text-xs bg-slate-900/40 border border-slate-850 hover:border-slate-800 text-indigo-400 rounded-2xl cursor-pointer transition-all">
+                No repositories found. Connect GitHub in Settings.
+              </Link>
+            ) : (
+              <div className="border border-slate-900 bg-slate-950 rounded-2xl overflow-hidden py-1 max-h-48 overflow-y-auto divide-y divide-slate-900/40">
+                {gitRepos.map((repo) => (
+                  <button
+                    key={repo.fullName}
+                    onClick={() => handleLinkRepo(repo)}
+                    className="w-full text-left px-4 py-3 hover:bg-indigo-650/10 text-xs text-slate-300 hover:text-white transition-all flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="truncate pr-4 flex flex-col gap-0.5">
+                      <span className="font-semibold text-slate-200">{repo.name}</span>
+                      <span className="text-[9px] text-slate-500 truncate">{repo.fullName}</span>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -265,184 +325,6 @@ export default function DashboardPage() {
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* New Project Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg bg-slate-950 border border-slate-900 rounded-3xl shadow-2xl relative p-6 space-y-6">
-            <div>
-              <h3 className="text-lg font-bold text-white font-heading">Link New Visual Project</h3>
-              <p className="text-xs text-slate-400 mt-1">Setup live postMessage variable editing for your repository template.</p>
-            </div>
-
-            {errorMsg && (
-              <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-450 rounded-xl text-xs">
-                {errorMsg}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateProject} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Project Workspace Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="My Creative Portfolio Site"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full text-xs bg-slate-900 border border-slate-850 hover:border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl p-3 text-white transition-all outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  GitHub Repository Source
-                </label>
-                {gitRepos.length === 0 ? (
-                  <div className="p-3 text-xs bg-slate-900 border border-slate-850 text-slate-400 rounded-xl flex items-center gap-2">
-                    <FolderGit2 className="h-4.5 w-4.5 text-slate-500" />
-                    <span>No repositories linked. Check settings.</span>
-                  </div>
-                ) : (
-                  <select
-                    value={selectedRepo}
-                    onChange={(e) => handleRepoChange(e.target.value)}
-                    className="w-full text-xs bg-slate-900 border border-slate-850 hover:border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl p-3 text-white transition-all outline-none font-medium"
-                  >
-                    {gitRepos.map((repo) => (
-                      <option key={repo.fullName} value={repo.fullName}>
-                        {repo.fullName}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-mono">
-                    Git Branch
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
-                    className="w-full text-xs bg-slate-900 border border-slate-850 hover:border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl p-3 text-white transition-all outline-none font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                    Tech Stack
-                  </label>
-                  <select
-                    value={framework}
-                    onChange={(e) => setFramework(e.target.value)}
-                    className="w-full text-xs bg-slate-900 border border-slate-850 hover:border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl p-3 text-white transition-all outline-none font-medium"
-                  >
-                    <option value="nextjs">Next.js (App Router)</option>
-                    <option value="vite">Vite + React</option>
-                    <option value="vanilla">Vanilla HTML / JS</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Select Edge Host Connector
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  <label className={`border rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 cursor-pointer text-xs font-semibold transition-all ${
-                    hostingProvider === 'none' 
-                      ? 'bg-indigo-650/15 border-indigo-500 text-indigo-400' 
-                      : 'bg-slate-900 border-slate-850 text-slate-400 hover:border-slate-800'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="hosting"
-                      value="none"
-                      checked={hostingProvider === 'none'}
-                      onChange={() => setHostingProvider('none')}
-                      className="sr-only"
-                    />
-                    <span>None</span>
-                  </label>
-
-                  <label className={`border rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 text-xs font-semibold transition-all ${
-                    !vercelAvailable 
-                      ? 'opacity-30 cursor-not-allowed bg-slate-950 border-slate-950 text-slate-650'
-                      : hostingProvider === 'vercel'
-                        ? 'bg-indigo-650/15 border-indigo-500 text-indigo-400 cursor-pointer'
-                        : 'bg-slate-900 border-slate-850 text-slate-400 hover:border-slate-800 cursor-pointer'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="hosting"
-                      value="vercel"
-                      disabled={!vercelAvailable}
-                      checked={hostingProvider === 'vercel'}
-                      onChange={() => setHostingProvider('vercel')}
-                      className="sr-only"
-                    />
-                    <span>Vercel</span>
-                  </label>
-
-                  <label className={`border rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 text-xs font-semibold transition-all ${
-                    !netlifyAvailable 
-                      ? 'opacity-30 cursor-not-allowed bg-slate-950 border-slate-950 text-slate-650'
-                      : hostingProvider === 'netlify'
-                        ? 'bg-indigo-650/15 border-indigo-500 text-indigo-400 cursor-pointer'
-                        : 'bg-slate-900 border-slate-850 text-slate-400 hover:border-slate-800 cursor-pointer'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="hosting"
-                      value="netlify"
-                      disabled={!netlifyAvailable}
-                      checked={hostingProvider === 'netlify'}
-                      onChange={() => setHostingProvider('netlify')}
-                      className="sr-only"
-                    />
-                    <span>Netlify</span>
-                  </label>
-                </div>
-                {!vercelAvailable && !netlifyAvailable && (
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    To link hosting automatically, configure Vercel or Netlify tokens inside{' '}
-                    <span onClick={() => setShowModal(false)} className="text-indigo-400 hover:underline cursor-pointer">
-                      Connectors Settings
-                    </span>.
-                  </p>
-                )}
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t border-slate-900">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-850 hover:bg-slate-800 text-slate-300 transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating || gitRepos.length === 0}
-                  className="flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold bg-indigo-650 hover:bg-indigo-600 text-white transition-all shadow-md shadow-indigo-650/15 disabled:opacity-50 cursor-pointer btn-shimmer border border-indigo-500/20"
-                >
-                  {creating ? (
-                    <RefreshCw className="h-4.5 w-4.5 animate-spin mx-auto" />
-                  ) : (
-                    'Link Repository'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
     </div>

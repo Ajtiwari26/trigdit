@@ -7,7 +7,8 @@ export const GET = auth(async (req) => {
   }
 
   try {
-    const repos = await listUserRepositories(req.auth.user.id);
+    const accessToken = (req.auth as any)?.accessToken;
+    const repos = await listUserRepositories(req.auth.user.id, accessToken);
     return Response.json(repos);
   } catch (error: any) {
     console.error('GitHub API error:', error);

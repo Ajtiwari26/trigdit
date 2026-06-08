@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { signIn } from 'next-auth/react';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -33,6 +34,11 @@ export default function SettingsPage() {
   const [loadingNetlify, setLoadingNetlify] = useState(false);
   const [showNetlifyManual, setShowNetlifyManual] = useState(false);
 
+  // GitHub State
+  const [githubConnected, setGithubConnected] = useState(false);
+  const [githubUser, setGithubUser] = useState<any>(null);
+  const [loadingGithub, setLoadingGithub] = useState(false);
+
   // General Loading State
   const [loadingPage, setLoadingPage] = useState(true);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -46,9 +52,10 @@ export default function SettingsPage() {
   useEffect(() => {
     async function loadIntegrations() {
       try {
-        const [vRes, nRes] = await Promise.all([
+        const [vRes, nRes, gRes] = await Promise.all([
           fetch('/api/integrations/vercel'),
-          fetch('/api/integrations/netlify')
+          fetch('/api/integrations/netlify'),
+          fetch('/api/integrations/github/status')
         ]);
 
         if (vRes.ok) {
@@ -65,6 +72,14 @@ export default function SettingsPage() {
           if (nData.integrated) {
             setNetlifyConnected(true);
             setNetlifySitesCount(nData.sites?.length || 0);
+          }
+        }
+
+        if (gRes.ok) {
+          const gData = await gRes.json();
+          if (gData.integrated) {
+            setGithubConnected(true);
+            setGithubUser(gData.user);
           }
         }
       } catch (err) {
@@ -286,7 +301,70 @@ export default function SettingsPage() {
         </svg>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* GitHub Card */}
+        <div className="glass-card rounded-2xl p-6 flex flex-col justify-between space-y-6">
+          <div className="space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="bg-slate-900 text-white px-2.5 py-1 text-xs font-bold uppercase tracking-widest rounded border border-slate-800 flex items-center gap-1.5 w-fit">
+                  <Github className="h-3.5 w-3.5 text-slate-300" />
+                  GitHub
+                </span>
+                <h3 className="text-lg font-semibold text-white mt-2.5">GitHub Source</h3>
+              </div>
+              {githubConnected ? (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Connected
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-900 text-slate-500 border border-slate-850">
+                  Disconnected
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Required to fetch repositories, create webhooks, and commit content changes directly back to your codebase.
+            </p>
+
+            {githubConnected && githubUser && (
+              <div className="p-3.5 bg-slate-950/60 border border-slate-900 rounded-xl space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Connected Account</span>
+                  <span className="text-slate-300 font-semibold truncate max-w-[120px]">{githubUser.name || githubUser.email}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <button
+              onClick={async () => {
+                setLoadingGithub(true);
+                try {
+                  await signIn('github', { callbackUrl: '/dashboard/settings?success=github' });
+                } catch (err) {
+                  console.error(err);
+                  setLoadingGithub(false);
+                }
+              }}
+              disabled={loadingGithub}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-semibold text-white bg-indigo-650 hover:bg-indigo-600 transition-all shadow-md shadow-indigo-600/10 cursor-pointer btn-shimmer border border-indigo-500/20 text-center disabled:opacity-50"
+            >
+              {loadingGithub ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Link2 className="h-4 w-4" />
+                  {githubConnected ? 'Reauthorize GitHub' : 'Connect GitHub'}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
         {/* Vercel Card */}
         <div className="glass-card rounded-2xl p-6 flex flex-col justify-between space-y-6">
           <div className="space-y-4">

@@ -11,8 +11,8 @@ export async function getGitHubToken(userId: string): Promise<string | null> {
   return account?.access_token || null;
 }
 
-export async function getOctokitClient(userId: string): Promise<Octokit> {
-  const token = await getGitHubToken(userId);
+export async function getOctokitClient(userId: string, customToken?: string): Promise<Octokit> {
+  const token = customToken || await getGitHubToken(userId);
   if (!token) {
     throw new Error('GitHub account is not connected or token not found');
   }
@@ -29,7 +29,7 @@ export interface GitHubRepo {
   defaultBranch: string;
 }
 
-export async function listUserRepositories(userId: string): Promise<GitHubRepo[]> {
+export async function listUserRepositories(userId: string, customToken?: string): Promise<GitHubRepo[]> {
   if (userId.startsWith('usr_mock')) {
     return [
       { id: 101, name: 'nextjs-company-website', fullName: 'mock-org/nextjs-company-website', description: 'Corporate landing page built with Next.js App Router.', private: false, htmlUrl: '#', defaultBranch: 'main' },
@@ -38,7 +38,7 @@ export async function listUserRepositories(userId: string): Promise<GitHubRepo[]
     ];
   }
 
-  const octokit = await getOctokitClient(userId);
+  const octokit = await getOctokitClient(userId, customToken);
   const response = await octokit.rest.repos.listForAuthenticatedUser({
     sort: 'updated',
     per_page: 100,
@@ -55,12 +55,12 @@ export async function listUserRepositories(userId: string): Promise<GitHubRepo[]
   }));
 }
 
-export async function getRepoBranches(userId: string, owner: string, repo: string): Promise<string[]> {
+export async function getRepoBranches(userId: string, owner: string, repo: string, customToken?: string): Promise<string[]> {
   if (userId.startsWith('usr_mock')) {
     return ['main', 'development', 'staging'];
   }
 
-  const octokit = await getOctokitClient(userId);
+  const octokit = await getOctokitClient(userId, customToken);
   const response = await octokit.rest.repos.listBranches({
     owner,
     repo,
@@ -74,7 +74,8 @@ export async function getFileContent(
   owner: string,
   repo: string,
   path: string,
-  ref?: string
+  ref?: string,
+  customToken?: string
 ): Promise<{ sha: string; content: string } | null> {
   if (userId.startsWith('usr_mock')) {
     if (path.endsWith('trigdit.schema.json')) {
@@ -123,7 +124,7 @@ export async function getFileContent(
     return null;
   }
 
-  const octokit = await getOctokitClient(userId);
+  const octokit = await getOctokitClient(userId, customToken);
   try {
     const response = await octokit.rest.repos.getContent({
       owner,
@@ -156,13 +157,14 @@ export async function commitFileContent(
   content: string,
   commitMessage: string,
   branch: string,
-  sha?: string
+  sha?: string,
+  customToken?: string
 ): Promise<{ sha: string }> {
   if (userId.startsWith('usr_mock')) {
     return { sha: 'mock-new-commit-sha-' + Math.random().toString(36).substr(2, 9) };
   }
 
-  const octokit = await getOctokitClient(userId);
+  const octokit = await getOctokitClient(userId, customToken);
   const response = await octokit.rest.repos.createOrUpdateFileContents({
     owner,
     repo,
@@ -183,13 +185,14 @@ export async function createRepoWebhook(
   owner: string,
   repo: string,
   webhookUrl: string,
-  secret: string
+  secret: string,
+  customToken?: string
 ): Promise<number> {
   if (userId.startsWith('usr_mock')) {
     return 99999;
   }
 
-  const octokit = await getOctokitClient(userId);
+  const octokit = await getOctokitClient(userId, customToken);
   const response = await octokit.rest.repos.createWebhook({
     owner,
     repo,

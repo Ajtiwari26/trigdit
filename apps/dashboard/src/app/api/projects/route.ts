@@ -81,8 +81,9 @@ export const POST = auth(async (req) => {
     const webhookUrl = `${appUrl}/api/webhooks/github`;
     const webhookSecret = process.env.WEBHOOK_SECRET || 'trigdit-webhook-secret';
     
+    const accessToken = (req.auth as any)?.accessToken;
     try {
-      await createRepoWebhook(userId, repoOrg, repoSimpleName, webhookUrl, webhookSecret);
+      await createRepoWebhook(userId, repoOrg, repoSimpleName, webhookUrl, webhookSecret, accessToken);
     } catch (err: any) {
       console.warn('GitHub webhook creation failed (might already exist):', err.message);
     }

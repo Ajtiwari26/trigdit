@@ -28,15 +28,19 @@ export const authConfig = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
+      }
+      if (account && account.provider === 'github') {
+        token.accessToken = account.access_token;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user && token) {
         session.user.id = token.id as string;
+        (session as any).accessToken = token.accessToken as string;
       }
       return session;
     },
