@@ -283,7 +283,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((proj) => (
+          {projects.filter(Boolean).map((proj) => (
             <div
               key={proj.id}
               className="glass-card rounded-2xl p-6 flex flex-col justify-between space-y-5 group"
