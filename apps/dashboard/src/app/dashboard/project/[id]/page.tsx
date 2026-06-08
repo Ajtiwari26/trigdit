@@ -17,7 +17,8 @@ import {
   Compass,
   FileCode,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles
 } from 'lucide-react';
 import type { ProjectSchemaFile, ContentData } from '@trigdit/shared';
 
@@ -412,12 +413,125 @@ export default function EditorPage() {
         {/* Visual Editor Canvas - Right */}
         <section className="flex-1 bg-slate-950 flex flex-col items-center justify-center p-8 overflow-hidden relative">
           {!previewUrl ? (
-            <div className="max-w-md text-center p-8 border border-dashed border-slate-900 rounded-2xl flex flex-col items-center space-y-4">
-              <Globe className="h-10 w-10 text-slate-700" />
-              <h4 className="text-sm font-semibold text-slate-300">No hosting deployment active</h4>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Add Vercel/Netlify tokens to dashboard connectors, link this project, and deploy to enable real-time visual sandbox sync.
-              </p>
+            <div className="w-full h-full flex flex-col overflow-hidden">
+              {/* Info banner about mock preview */}
+              <div className="bg-slate-900/40 border border-slate-900/60 px-4 py-2.5 rounded-xl flex items-center justify-between text-xs text-slate-400 mb-4 font-sans shrink-0">
+                <span className="flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-400 animate-pulse" />
+                  <span>Showing real-time visual sandbox simulation (Vercel/Netlify offline).</span>
+                </span>
+                <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-900 uppercase">Local Sandbox Preview</span>
+              </div>
+              <div className={`w-full flex-1 flex items-center justify-center transition-all overflow-hidden ${
+                viewportMode === 'mobile' 
+                  ? 'max-w-[375px]' 
+                  : viewportMode === 'tablet' 
+                    ? 'max-w-[768px]' 
+                    : 'max-w-full'
+              } mx-auto`}>
+                <div className="w-full h-full border border-slate-900 rounded-2xl overflow-y-auto bg-[#090d16] text-slate-100 flex flex-col relative font-sans shadow-2xl custom-scrollbar">
+                  {/* Mock Navbar */}
+                  <header className="h-16 border-b border-slate-900/60 px-6 flex items-center justify-between bg-slate-950/80 backdrop-blur-md sticky top-0 z-10 shrink-0">
+                    <span className="font-extrabold text-white tracking-tight text-sm flex items-center gap-2 uppercase font-mono">
+                      <span className="h-2.5 w-2.5 rounded-full bg-indigo-500 animate-pulse" />
+                      {project.name}
+                    </span>
+                    <nav className="flex items-center gap-5 text-[11px] font-semibold text-slate-400">
+                      <span className="hover:text-white transition-colors cursor-pointer">Products</span>
+                      <span className="hover:text-white transition-colors cursor-pointer">Pricing</span>
+                      <span className="hover:text-white transition-colors cursor-pointer">Docs</span>
+                    </nav>
+                  </header>
+
+                  {/* Render Visual Sections dynamically based on schema and content */}
+                  <div className="flex-1 space-y-16 pb-16">
+                    {schema?.pages?.find(p => p.path === activePagePath)?.sections?.map((section) => {
+                      const sectionContent = content[activePagePath]?.[section.id] || {};
+                      
+                      if (section.id === 'hero' || section.name.toLowerCase().includes('hero')) {
+                        const title = sectionContent.title || sectionContent.titleText || 'Modern Website Platform';
+                        const subtitle = sectionContent.subtitle || sectionContent.subtitleDescription || 'Link, sync, and deploy visual themes instantly.';
+                        const primaryCta = sectionContent.primaryCta || 'Get Started';
+                        const bgGradientStart = sectionContent.bgGradientStart || '#4f46e5';
+                        const bgGradientEnd = sectionContent.bgGradientEnd || '#7c3aed';
+
+                        return (
+                          <section key={section.id} className="relative pt-24 pb-16 px-8 text-center flex flex-col items-center justify-center overflow-hidden border-b border-slate-900/40">
+                            {/* Gradients */}
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-[110px] pointer-events-none opacity-20"
+                                 style={{ backgroundColor: bgGradientStart }} />
+                            
+                            <div className="relative z-10 max-w-lg space-y-6">
+                              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight font-heading">
+                                {title}
+                              </h2>
+                              <p className="text-sm text-slate-450 leading-relaxed max-w-md mx-auto">
+                                {subtitle}
+                              </p>
+                              <div className="flex justify-center gap-3 pt-2">
+                                <button className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white transition-all shadow-lg shadow-indigo-650/15 active:scale-[0.98] cursor-pointer"
+                                        style={{ backgroundImage: `linear-gradient(to right, ${bgGradientStart}, ${bgGradientEnd})` }}>
+                                  {primaryCta}
+                                </button>
+                                <button className="px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-all border border-slate-800 hover:bg-slate-900/30 cursor-pointer">
+                                  Learn More
+                                </button>
+                              </div>
+                            </div>
+                          </section>
+                        );
+                      }
+
+                      // Features section fallback
+                      if (section.id === 'features' || section.name.toLowerCase().includes('feature')) {
+                        const title = sectionContent.title || 'Everything you need';
+                        const featuresList = sectionContent.features || [
+                          { title: 'Visual Editor', desc: 'Edit text, colors, and layout properties directly.' },
+                          { title: 'Git Sync', desc: 'Automatically commits content edits back to GitHub.' },
+                          { title: 'Edge Deploy', desc: 'Triggers instant builds on Vercel and Netlify.' }
+                        ];
+
+                        return (
+                          <section key={section.id} className="px-8 space-y-10 max-w-4xl mx-auto pt-6">
+                            <div className="text-center max-w-md mx-auto space-y-2">
+                              <h3 className="text-2xl font-bold text-white tracking-tight font-heading">{title}</h3>
+                            </div>
+                            <div className="grid md:grid-cols-3 gap-6">
+                              {featuresList.map((f: any, idx: number) => (
+                                <div key={idx} className="p-5 bg-slate-900/20 border border-slate-900/60 rounded-2xl hover:border-slate-800 transition-all space-y-2">
+                                  <h4 className="text-xs font-semibold text-white">{f.title}</h4>
+                                  <p className="text-[11px] text-slate-400 leading-relaxed">{f.desc}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </section>
+                        );
+                      }
+
+                      // Default Section Render
+                      return (
+                        <section key={section.id} className="px-8 max-w-xl mx-auto p-6 border border-slate-900/60 bg-slate-900/20 rounded-2xl space-y-4">
+                          <h3 className="text-xs font-bold text-white border-b border-slate-900 pb-2 flex justify-between items-center">
+                            <span>{section.name}</span>
+                            <span className="text-[9px] font-mono text-indigo-500 uppercase tracking-widest">Section Node</span>
+                          </h3>
+                          <div className="space-y-3">
+                            {section.fields.map((field: any) => {
+                              const val = sectionContent[field.key] ?? field.defaultValue ?? '';
+                              return (
+                                <div key={field.key} className="flex justify-between text-xs gap-4 items-center">
+                                  <span className="text-slate-500 font-medium">{field.label}:</span>
+                                  <span className="text-slate-300 font-mono text-[10px] bg-slate-950/60 px-2 py-1 rounded border border-slate-900 truncate max-w-[200px]">{String(val)}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
             <div className={`w-full h-full flex items-center justify-center transition-all ${

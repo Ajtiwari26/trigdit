@@ -609,7 +609,7 @@ export default function SettingsPage() {
         <div className="space-y-1">
           <h4 className="text-sm font-semibold text-slate-100">Secure Token Handling</h4>
           <p className="text-xs text-slate-400 leading-relaxed font-sans">
-            API Keys and tokens are sent over HTTPS and stored securely in our PostgreSQL database. These keys are only used to automate repo linkages and trigger builds on Vercel and Netlify on your explicit command.
+            API Keys and tokens are sent over HTTPS and stored securely in our MongoDB Atlas database. These keys are only used to automate repo linkages and trigger builds on Vercel and Netlify on your explicit command.
           </p>
         </div>
       </div>
