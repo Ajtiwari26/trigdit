@@ -8,7 +8,9 @@ export const GET = auth(async (req) => {
   const clientId = process.env.VERCEL_CLIENT_ID || '';
   const redirectUri = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/callback/vercel`;
   
-  const vercelAuthUrl = `https://vercel.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  const vercelAuthUrl = `https://vercel.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
+
+  console.log('Redirecting to Vercel OAuth URL:', vercelAuthUrl);
 
   return Response.redirect(vercelAuthUrl);
 });
