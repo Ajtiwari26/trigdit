@@ -41,6 +41,7 @@ export default function EditorPage() {
   const [publishStatus, setPublishStatus] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarHovered, setSidebarHovered] = useState(false);
+  const [sectionsOutlineExpanded, setSectionsOutlineExpanded] = useState(false);
 
   // Load editor details
   useEffect(() => {
@@ -307,29 +308,46 @@ export default function EditorPage() {
                 </select>
               </div>
 
-              {/* Sections list */}
+              {/* Collapsible Sections Outline Accordion */}
               {activePage?.sections && activePage.sections.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                    <Compass className="h-3.5 w-3.5" />
-                    Sections Outline
-                  </label>
-                  <div className="space-y-1">
-                    {activePage.sections.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => setActiveSectionId(s.id)}
-                        className={`w-full flex items-center justify-between text-left px-3 py-2 rounded-xl text-xs transition-all ${
-                          activeSectionId === s.id
-                            ? 'bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 font-semibold shadow-inner'
-                            : 'text-slate-400 hover:bg-slate-900/50 hover:text-slate-200 border border-transparent'
-                        }`}
-                      >
-                        <span>{s.name}</span>
-                        <ChevronRight className="h-3 w-3 opacity-60" />
-                      </button>
-                    ))}
-                  </div>
+                <div className="border border-slate-900 rounded-xl bg-slate-950/40 overflow-hidden">
+                  <button
+                    onClick={() => setSectionsOutlineExpanded(!sectionsOutlineExpanded)}
+                    className="w-full flex items-center justify-between p-3 text-left hover:bg-slate-900/30 transition-colors select-none"
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Compass className="h-3.5 w-3.5 text-indigo-400" />
+                      Sections Outline
+                      {activeSection && !sectionsOutlineExpanded && (
+                        <span className="text-[9px] font-semibold text-indigo-500 lowercase bg-indigo-500/10 px-1.5 py-0.5 rounded ml-1 font-mono">
+                          {activeSection.name}
+                        </span>
+                      )}
+                    </span>
+                    <ChevronRight className={`h-4 w-4 text-slate-500 transition-transform duration-200 ${sectionsOutlineExpanded ? 'rotate-90 text-indigo-400' : ''}`} />
+                  </button>
+                  
+                  {sectionsOutlineExpanded && (
+                    <div className="p-2 border-t border-slate-900/80 bg-slate-950/20 max-h-60 overflow-y-auto space-y-1 transition-all duration-300">
+                      {activePage.sections.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => {
+                            setActiveSectionId(s.id);
+                            setSectionsOutlineExpanded(false); // Collapse automatically on click!
+                          }}
+                          className={`w-full flex items-center justify-between text-left px-3 py-2 rounded-lg text-xs transition-all ${
+                            activeSectionId === s.id
+                              ? 'bg-indigo-600/10 border border-indigo-550/20 text-indigo-400 font-semibold shadow-inner'
+                              : 'text-slate-400 hover:bg-slate-900/40 hover:text-slate-200 border border-transparent'
+                          }`}
+                        >
+                          <span>{s.name}</span>
+                          <ChevronRight className="h-3 w-3 opacity-60" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
