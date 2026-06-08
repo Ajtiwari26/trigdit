@@ -10,7 +10,9 @@ import {
   LogOut, 
   User,
   Plug,
-  Terminal
+  Terminal,
+  PanelLeft,
+  PanelLeftClose
 } from 'lucide-react';
 
 export default function DashboardLayout({
@@ -20,6 +22,8 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const { data: session, status } = useSession();
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
+  const [sidebarHovered, setSidebarHovered] = React.useState(false);
 
   const navItems = [
     { name: 'Projects', href: '/dashboard', icon: Layers },
@@ -38,17 +42,39 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex-1 flex min-h-screen bg-slate-950 text-slate-200">
+    <div className="flex-1 flex min-h-screen bg-slate-950 text-slate-200 relative">
       {/* Sidebar Navigation */}
-      <aside className="w-64 border-r border-slate-900 bg-slate-900/20 backdrop-blur-md flex flex-col justify-between p-6">
-        <div className="space-y-8">
-          {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2.5 font-bold text-xl text-white">
-            <div className="p-1.5 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-lg text-white">
-              <Layers className="h-5 w-5" />
-            </div>
-            <span>Trigdit</span>
-          </Link>
+      <aside 
+        onMouseEnter={() => sidebarCollapsed && setSidebarHovered(true)}
+        onMouseLeave={() => sidebarCollapsed && setSidebarHovered(false)}
+        className={`border-r border-slate-900 bg-slate-950 flex flex-col justify-between p-6 transition-all duration-300 z-30 ${
+          sidebarCollapsed 
+            ? `absolute left-0 top-0 bottom-0 shadow-2xl ${sidebarHovered ? 'w-64 opacity-100 translate-x-0' : 'w-3 translate-x-0 p-0 border-r-2 border-indigo-500/30 bg-indigo-950/10'}` 
+            : 'relative w-64'
+        }`}
+      >
+        <div className={`space-y-8 transition-opacity duration-200 ${sidebarCollapsed && !sidebarHovered ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+          {/* Logo & Toggle */}
+          <div className="flex items-center justify-between">
+            <Link href="/dashboard" className="flex items-center gap-2.5 font-bold text-xl text-white">
+              <div className="p-1.5 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-lg text-white">
+                <Layers className="h-5 w-5" />
+              </div>
+              <span>Trigdit</span>
+            </Link>
+            
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="p-1.5 hover:bg-slate-900 rounded-lg text-slate-400 hover:text-white transition-colors"
+              title={sidebarCollapsed ? "Pin Sidebar Open" : "Collapse Sidebar"}
+            >
+              {sidebarCollapsed ? (
+                <PanelLeft className="h-4 w-4 text-indigo-400" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
+              )}
+            </button>
+          </div>
 
           {/* Navigation Links */}
           <nav className="space-y-1">
@@ -74,7 +100,7 @@ export default function DashboardLayout({
         </div>
 
         {/* User Card & Sign Out */}
-        <div className="pt-6 border-t border-slate-900 space-y-4">
+        <div className={`pt-6 border-t border-slate-900 space-y-4 transition-opacity duration-200 ${sidebarCollapsed && !sidebarHovered ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           <div className="flex items-center gap-3">
             {session?.user?.image ? (
               <img
@@ -104,12 +130,23 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main Content Pane */}
-      <main className="flex-1 flex flex-col overflow-y-auto">
+      <main className={`flex-1 flex flex-col overflow-y-auto transition-all duration-300 ${sidebarCollapsed ? 'pl-0' : ''}`}>
         <header className="h-16 border-b border-slate-900 flex items-center justify-between px-8 bg-slate-950/40 backdrop-blur-sm">
-          <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-            <Plug className="h-4 w-4 text-indigo-500" />
-            Active Workspace
-          </h2>
+          <div className="flex items-center gap-4">
+            {sidebarCollapsed && (
+              <button
+                onClick={() => setSidebarCollapsed(false)}
+                className="p-2 hover:bg-slate-900 rounded-lg text-slate-400 hover:text-white transition-colors"
+                title="Expand Sidebar"
+              >
+                <PanelLeft className="h-4.5 w-4.5 text-indigo-400" />
+              </button>
+            )}
+            <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+              <Plug className="h-4 w-4 text-indigo-500" />
+              Active Workspace
+            </h2>
+          </div>
           <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-900/60 py-1.5 px-3 rounded-lg border border-slate-800/80">
             <Terminal className="h-3.5 w-3.5 text-emerald-500" />
             <span>Connected via GitHub OAuth</span>
