@@ -1,0 +1,23 @@
+{
+  "name": "@trigdit/db",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.30.10",
+    "pg": "^8.11.5",
+    "@trigdit/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.21.4",
+    "@types/pg": "^8.11.6",
+    "typescript": "^5.4.5",
+    "next-auth": "5.0.0-beta.25"
+  }
+}

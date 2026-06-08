@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+:root {
+  --background: #090d16;
+  --foreground: #f8fafc;
+  
+  /* HSL Color Tokens matching Linear Dark/Glass System */
+  --primary: 247 62% 60%;
+  --primary-foreground: 0 0% 100%;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-plus-jakarta);
+  --font-heading: var(--font-outfit);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-plus-jakarta), var(--font-geist-sans), sans-serif;
+}
+
+/* Premium AI Design Animations & Classes */
+
+.glass-card {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(99, 102, 241, 0.25);
+  box-shadow: 0 12px 40px rgba(99, 102, 241, 0.08);
+}
+
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease;
+}
+
+.btn-shimmer::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-shimmer:hover {
+  transform: translateY(-1px);
+}
+
+.btn-shimmer:hover::before {
+  left: 100%;
+}
+
+/* Pulsing Signal Dot */
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.pulse-dot-active {
+  position: relative;
+}
+
+.pulse-dot-active::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1.5px solid #00E785;
+  animation: pulse-ring 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* Negative delays for wave transitions */
+.delay-wave-0 { animation-delay: 0s; }
+.delay-wave-1 { animation-delay: -0.5s; }
+.delay-wave-2 { animation-delay: -1s; }
+.delay-wave-3 { animation-delay: -1.5s; }
+
+/* Grid overlay for headers */
+.bg-grid-glow {
+  background-image: 
+    linear-gradient(to bottom, rgba(9, 13, 22, 0.9) 70%, #090d16 100%),
+    radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.1) 0%, transparent 60%),
+    radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 20px 20px;
+}
+
+/* SVG Line dash flow */
+@keyframes dash {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+/* Telemetry sliding packets */
+@keyframes slide-telemetry {
+  0% { transform: translate(50px, 70px); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translate(270px, 70px); opacity: 0; }
+}
+
+.animate-telemetry-slide {
+  animation: slide-telemetry 3s infinite linear;
+}
+
+
